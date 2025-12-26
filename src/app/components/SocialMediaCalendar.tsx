@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, PawPrint, Podcast, FileText, CreditCard, Smartphone, DollarSign, TrendingUp, Video, Sparkles, PartyPopper, Gift, Plus, X, Ticket, AlertCircle, Heart, Briefcase, Check, Circle, CheckCircle2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -9,115 +9,159 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import PostProgressTracker from './PostProgressTracker';
 
+// localStorage keys
+const STORAGE_KEYS = {
+  POSTS: 'social-calendar-posts',
+  PROGRESS: 'social-calendar-progress',
+  CURRENT_DATE: 'social-calendar-current-date'
+};
+
+// Helper functions for localStorage
+const saveToStorage = (key: string, data: any) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error('Error saving to localStorage:', error);
+  }
+};
+
+const loadFromStorage = <T,>(key: string, defaultValue: T): T => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('Error loading from localStorage:', error);
+  }
+  return defaultValue;
+};
+
+// Serialize posts for storage (convert Dates to ISO strings)
+const serializePosts = (posts: Post[]) => {
+  return posts.map(post => ({
+    ...post,
+    scheduledDate: post.scheduledDate.toISOString()
+  }));
+};
+
+// Deserialize posts from storage (convert ISO strings back to Dates)
+const deserializePosts = (posts: any[]): Post[] => {
+  return posts.map(post => ({
+    ...post,
+    scheduledDate: new Date(post.scheduledDate)
+  }));
+};
+
 // Post types with their colors and icons
 const POST_TYPES = {
-  pet: { 
-    label: 'Pet of the Week', 
-    color: 'bg-orange-500', 
+  pet: {
+    label: 'Pet of the Week',
+    color: 'bg-orange-500',
     icon: PawPrint,
     textColor: 'text-orange-700',
     bgLight: 'bg-orange-50',
     borderColor: 'border-orange-200'
   },
-  digital: { 
-    label: 'Digital Services', 
-    color: 'bg-[#485e27]', 
+  digital: {
+    label: 'Digital Services',
+    color: 'bg-[#485e27]',
     icon: Smartphone,
     textColor: 'text-[#485e27]',
     bgLight: 'bg-green-50',
     borderColor: 'border-green-300'
   },
-  financial: { 
-    label: 'Financial Services', 
-    color: 'bg-emerald-600', 
+  financial: {
+    label: 'Financial Services',
+    color: 'bg-emerald-600',
     icon: DollarSign,
     textColor: 'text-emerald-700',
     bgLight: 'bg-emerald-50',
     borderColor: 'border-emerald-200'
   },
-  podcast: { 
-    label: 'Podcast Episode', 
-    color: 'bg-blue-600', 
+  podcast: {
+    label: 'Podcast Episode',
+    color: 'bg-blue-600',
     icon: Podcast,
     textColor: 'text-blue-700',
     bgLight: 'bg-blue-50',
     borderColor: 'border-blue-200'
   },
-  podcastPromo: { 
-    label: 'Podcast Promo', 
-    color: 'bg-blue-400', 
+  podcastPromo: {
+    label: 'Podcast Promo',
+    color: 'bg-blue-400',
     icon: Podcast,
     textColor: 'text-blue-600',
     bgLight: 'bg-blue-50',
     borderColor: 'border-blue-200'
   },
-  blog: { 
-    label: 'Blog Post', 
-    color: 'bg-teal-600', 
+  blog: {
+    label: 'Blog Post',
+    color: 'bg-teal-600',
     icon: FileText,
     textColor: 'text-teal-700',
     bgLight: 'bg-teal-50',
     borderColor: 'border-teal-200'
   },
-  product: { 
-    label: 'Product Feature', 
-    color: 'bg-lime-600', 
+  product: {
+    label: 'Product Feature',
+    color: 'bg-lime-600',
     icon: CreditCard,
     textColor: 'text-lime-700',
     bgLight: 'bg-lime-50',
     borderColor: 'border-lime-200'
   },
-  video: { 
-    label: 'Video Content', 
-    color: 'bg-amber-600', 
+  video: {
+    label: 'Video Content',
+    color: 'bg-amber-600',
     icon: Video,
     textColor: 'text-amber-700',
     bgLight: 'bg-amber-50',
     borderColor: 'border-amber-200'
   },
-  special: { 
-    label: 'Special Event', 
-    color: 'bg-pink-600', 
+  special: {
+    label: 'Special Event',
+    color: 'bg-pink-600',
     icon: Sparkles,
     textColor: 'text-pink-700',
     bgLight: 'bg-pink-50',
     borderColor: 'border-pink-200'
   },
-  gift: { 
-    label: 'Gift Card Giveaway', 
-    color: 'bg-purple-600', 
+  gift: {
+    label: 'Gift Card Giveaway',
+    color: 'bg-purple-600',
     icon: Gift,
     textColor: 'text-purple-700',
     bgLight: 'bg-purple-50',
     borderColor: 'border-purple-200'
   },
-  ticket: { 
-    label: 'Ticket Giveaway', 
-    color: 'bg-indigo-600', 
+  ticket: {
+    label: 'Ticket Giveaway',
+    color: 'bg-indigo-600',
     icon: Ticket,
     textColor: 'text-indigo-700',
     bgLight: 'bg-indigo-50',
     borderColor: 'border-indigo-200'
   },
-  closure: { 
-    label: 'Branch Closure/Delay', 
-    color: 'bg-yellow-600', 
+  closure: {
+    label: 'Branch Closure/Delay',
+    color: 'bg-yellow-600',
     icon: AlertCircle,
     textColor: 'text-yellow-700',
     bgLight: 'bg-yellow-50',
     borderColor: 'border-yellow-200'
   },
-  donation: { 
-    label: 'Donation Photo', 
-    color: 'bg-rose-600', 
+  donation: {
+    label: 'Donation Photo',
+    color: 'bg-rose-600',
     icon: Heart,
     textColor: 'text-rose-700',
     bgLight: 'bg-rose-50',
     borderColor: 'border-rose-200'
   },
-  businessTestimonial: { 
-    label: 'Business Testimonial', 
-    color: 'bg-slate-600', 
+  businessTestimonial: {
+    label: 'Business Testimonial',
+    color: 'bg-slate-600',
     icon: Briefcase,
     textColor: 'text-slate-700',
     bgLight: 'bg-slate-50',
@@ -150,67 +194,67 @@ const ALL_SPECIAL_DAYS: SpecialDay[] = [
   { month: 0, day: 20, name: 'Martin Luther King Jr. Day', emoji: '🕊️', type: 'holiday' },
   { month: 0, day: 24, name: 'National Compliment Day', emoji: '💬', type: 'fun' },
   { month: 0, day: 29, name: 'National Puzzle Day', emoji: '🧩', type: 'fun' },
-  
+
   // February
   { month: 1, day: 2, name: 'Super Bowl Sunday', emoji: '🏈', type: 'fun' },
   { month: 1, day: 14, name: 'Valentine\'s Day', emoji: '❤️', type: 'holiday' },
   { month: 1, day: 17, name: 'Presidents\' Day', emoji: '🇺🇸', type: 'holiday' },
   { month: 1, day: 22, name: 'National Walk Your Dog Day', emoji: '🐕', type: 'fun' },
-  
+
   // March
   { month: 2, day: 1, name: 'National Credit Education Month', emoji: '📚', type: 'financial' },
   { month: 2, day: 8, name: 'International Women\'s Day', emoji: '👩', type: 'holiday' },
   { month: 2, day: 17, name: 'St. Patrick\'s Day', emoji: '🍀', type: 'holiday' },
   { month: 2, day: 20, name: 'First Day of Spring', emoji: '🌸', type: 'fun' },
   { month: 2, day: 31, name: 'World Backup Day', emoji: '💾', type: 'fun' },
-  
+
   // April
   { month: 3, day: 1, name: 'Financial Literacy Month', emoji: '📊', type: 'financial' },
   { month: 3, day: 7, name: 'National Beer Day', emoji: '🍺', type: 'fun' },
   { month: 3, day: 15, name: 'Tax Day', emoji: '💸', type: 'financial' },
   { month: 3, day: 22, name: 'Earth Day', emoji: '🌍', type: 'holiday' },
   { month: 3, day: 30, name: 'National Honesty Day', emoji: '🤝', type: 'fun' },
-  
+
   // May
   { month: 4, day: 1, name: 'National Small Business Week', emoji: '🏢', type: 'financial' },
   { month: 4, day: 4, name: 'Star Wars Day', emoji: '⭐', type: 'fun' },
   { month: 4, day: 11, name: 'Mother\'s Day', emoji: '👩', type: 'holiday' },
   { month: 4, day: 26, name: 'Memorial Day', emoji: '🇺🇸', type: 'holiday' },
-  
+
   // June
   { month: 5, day: 1, name: 'National Homeownership Month', emoji: '🏡', type: 'financial' },
   { month: 5, day: 15, name: 'Father\'s Day', emoji: '👨', type: 'holiday' },
   { month: 5, day: 19, name: 'Juneteenth', emoji: '✊', type: 'holiday' },
   { month: 5, day: 21, name: 'First Day of Summer', emoji: '☀️', type: 'fun' },
-  
+
   // July
   { month: 6, day: 4, name: 'Independence Day', emoji: '🎆', type: 'holiday' },
   { month: 6, day: 17, name: 'World Emoji Day', emoji: '😊', type: 'fun' },
   { month: 6, day: 30, name: 'International Friendship Day', emoji: '🤝', type: 'fun' },
-  
+
   // August
   { month: 7, day: 1, name: 'National Financial Awareness Day', emoji: '💵', type: 'financial' },
   { month: 7, day: 8, name: 'National Dollar Day', emoji: '💲', type: 'financial' },
   { month: 7, day: 19, name: 'National Aviation Day', emoji: '✈️', type: 'fun' },
   { month: 7, day: 26, name: 'National Dog Day', emoji: '🐶', type: 'fun' },
-  
+
   // September
   { month: 8, day: 2, name: 'Labor Day', emoji: '⚒️', type: 'holiday' },
   { month: 8, day: 22, name: 'First Day of Fall', emoji: '🍂', type: 'fun' },
   { month: 8, day: 30, name: 'National Savings Day', emoji: '🐷', type: 'financial' },
-  
+
   // October
   { month: 9, day: 1, name: 'National Financial Planning Month', emoji: '📈', type: 'financial' },
   { month: 9, day: 14, name: 'Columbus Day', emoji: '🗺️', type: 'holiday' },
   { month: 9, day: 17, name: 'International Credit Union Day', emoji: '🏦', type: 'financial' },
   { month: 9, day: 31, name: 'Halloween', emoji: '🎃', type: 'holiday' },
-  
+
   // November
   { month: 10, day: 1, name: 'National Debt Awareness Month', emoji: '💳', type: 'financial' },
   { month: 10, day: 11, name: 'Veterans Day', emoji: '🎖️', type: 'holiday' },
   { month: 10, day: 28, name: 'Thanksgiving', emoji: '🦃', type: 'holiday' },
   { month: 10, day: 29, name: 'Black Friday', emoji: '🛍️', type: 'fun' },
-  
+
   // December
   { month: 11, day: 1, name: 'National Write a Check Day', emoji: '✍️', type: 'financial' },
   { month: 11, day: 2, name: 'Giving Tuesday', emoji: '🎁', type: 'fun' },
@@ -221,7 +265,7 @@ const ALL_SPECIAL_DAYS: SpecialDay[] = [
 // Generate posts for any month
 const generatePosts = (month: number, year: number): Post[] => {
   const posts: Post[] = [];
-  
+
   // Pet of the Week - Every Monday
   const petDates = [6, 13, 20, 27]; // Mondays in January 2025
   petDates.forEach((day, index) => {
@@ -377,15 +421,50 @@ const generatePosts = (month: number, year: number): Post[] => {
 };
 
 export default function SocialMediaCalendar() {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 0, 1)); // January 2025
-  const [posts, setPosts] = useState<Post[]>(generatePosts(0, 2025));
+  // Initialize state from localStorage or use defaults
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [currentDate, setCurrentDate] = useState(() => {
+    const savedDate = loadFromStorage<string | null>(STORAGE_KEYS.CURRENT_DATE, null);
+    if (savedDate) {
+      return new Date(savedDate);
+    }
+    return new Date(2025, 0, 1); // January 2025
+  });
+
+  const [posts, setPosts] = useState<Post[]>(() => {
+    const savedPosts = loadFromStorage<any[] | null>(STORAGE_KEYS.POSTS, null);
+    if (savedPosts && savedPosts.length > 0) {
+      return deserializePosts(savedPosts);
+    }
+    // Generate default posts for January 2025 if no saved data
+    return generatePosts(0, 2025);
+  });
+
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newPostType, setNewPostType] = useState<keyof typeof POST_TYPES | ''>('');
   const [newPostTitle, setNewPostTitle] = useState('');
   const [newPostDescription, setNewPostDescription] = useState('');
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  const [postProgress, setPostProgress] = useState<Record<string, any>>({});
+
+  const [postProgress, setPostProgress] = useState<Record<string, any>>(() => {
+    return loadFromStorage<Record<string, any>>(STORAGE_KEYS.PROGRESS, {});
+  });
+
+  // Save posts to localStorage whenever they change
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.POSTS, serializePosts(posts));
+  }, [posts]);
+
+  // Save progress to localStorage whenever it changes
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.PROGRESS, postProgress);
+  }, [postProgress]);
+
+  // Save current date to localStorage whenever it changes
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.CURRENT_DATE, currentDate.toISOString());
+  }, [currentDate]);
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -409,24 +488,40 @@ export default function SocialMediaCalendar() {
     return new Date(year, month, 1).getDay();
   };
 
+  // Check if we have any posts for a given month
+  const hasPostsForMonth = (month: number, year: number) => {
+    return posts.some(post =>
+      post.scheduledDate.getMonth() === month &&
+      post.scheduledDate.getFullYear() === year
+    );
+  };
+
   const previousMonth = () => {
     const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
     setCurrentDate(newDate);
-    setPosts(generatePosts(newDate.getMonth(), newDate.getFullYear()));
+    // Only generate default posts if we don't have any for this month
+    if (!hasPostsForMonth(newDate.getMonth(), newDate.getFullYear())) {
+      const newPosts = generatePosts(newDate.getMonth(), newDate.getFullYear());
+      setPosts(prevPosts => [...prevPosts, ...newPosts]);
+    }
   };
 
   const nextMonth = () => {
     const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
     setCurrentDate(newDate);
-    setPosts(generatePosts(newDate.getMonth(), newDate.getFullYear()));
+    // Only generate default posts if we don't have any for this month
+    if (!hasPostsForMonth(newDate.getMonth(), newDate.getFullYear())) {
+      const newPosts = generatePosts(newDate.getMonth(), newDate.getFullYear());
+      setPosts(prevPosts => [...prevPosts, ...newPosts]);
+    }
   };
 
   const getPostsForDay = (day: number) => {
     return posts.filter(post => {
       const postDate = post.scheduledDate;
       return postDate.getDate() === day &&
-             postDate.getMonth() === currentDate.getMonth() &&
-             postDate.getFullYear() === currentDate.getFullYear();
+        postDate.getMonth() === currentDate.getMonth() &&
+        postDate.getFullYear() === currentDate.getFullYear();
     });
   };
 
@@ -464,6 +559,19 @@ export default function SocialMediaCalendar() {
     setPosts(posts.filter(p => p.id !== postId));
   };
 
+  // Function to clear all saved data and reset to defaults
+  const clearAllData = () => {
+    if (window.confirm('Are you sure you want to clear all saved data? This will reset the calendar to default posts.')) {
+      localStorage.removeItem(STORAGE_KEYS.POSTS);
+      localStorage.removeItem(STORAGE_KEYS.PROGRESS);
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_DATE);
+      // Reset to defaults
+      setCurrentDate(new Date(2025, 0, 1));
+      setPosts(generatePosts(0, 2025));
+      setPostProgress({});
+    }
+  };
+
   const daysInMonth = getDaysInMonth(currentDate);
   const firstDayOfMonth = getFirstDayOfMonth(currentDate);
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -477,9 +585,24 @@ export default function SocialMediaCalendar() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="mb-2">NorthCountry FCU Social Media Calendar</h1>
-              <p className="text-slate-600">Plan and schedule your social media content</p>
+              <div className="flex items-center gap-3">
+                <p className="text-slate-600">Plan and schedule your social media content</p>
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Auto-saves to browser
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearAllData}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Clear All Data
+              </Button>
               <Button variant="outline" size="icon" onClick={previousMonth}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -521,8 +644,8 @@ export default function SocialMediaCalendar() {
                   <span className="text-sm text-slate-700">
                     {monthAbbreviations[currentDate.getMonth()]} {day.day}: <span className={
                       day.type === 'financial' ? 'text-green-700' :
-                      day.type === 'holiday' ? 'text-red-700' :
-                      'text-blue-700'
+                        day.type === 'holiday' ? 'text-red-700' :
+                          'text-blue-700'
                     }>{day.name}</span>
                   </span>
                 </div>
@@ -530,6 +653,7 @@ export default function SocialMediaCalendar() {
             </div>
           </Card>
         </div>
+
 
         {/* Calendar Grid */}
         <Card className="p-6 bg-white">
@@ -558,23 +682,21 @@ export default function SocialMediaCalendar() {
               return (
                 <div
                   key={day}
-                  className={`border rounded-lg p-2 aspect-square min-h-[140px] hover:border-[#485e27] transition-colors ${
-                    isToday ? 'border-[#485e27] bg-green-50' : 
-                    specialDay ? 'border-amber-300 bg-amber-50/30' : 
-                    'border-slate-200 bg-white'
-                  }`}
+                  className={`border rounded-lg p-2 aspect-square min-h-[140px] hover:border-[#485e27] transition-colors ${isToday ? 'border-[#485e27] bg-green-50' :
+                    specialDay ? 'border-amber-300 bg-amber-50/30' :
+                      'border-slate-200 bg-white'
+                    }`}
                 >
                   <div className="flex items-start justify-between mb-1">
                     <div className={`text-sm ${isToday ? '' : 'text-slate-700'}`}>
                       {day}
                     </div>
                     {specialDay && (
-                      <div 
-                        className={`text-lg leading-none ${
-                          specialDay.type === 'financial' ? 'bg-green-100 px-1 rounded' : 
-                          specialDay.type === 'holiday' ? 'bg-red-100 px-1 rounded' : 
-                          'bg-blue-100 px-1 rounded'
-                        }`}
+                      <div
+                        className={`text-lg leading-none ${specialDay.type === 'financial' ? 'bg-green-100 px-1 rounded' :
+                          specialDay.type === 'holiday' ? 'bg-red-100 px-1 rounded' :
+                            'bg-blue-100 px-1 rounded'
+                          }`}
                         title={specialDay.name}
                       >
                         {specialDay.emoji}
@@ -582,11 +704,10 @@ export default function SocialMediaCalendar() {
                     )}
                   </div>
                   {specialDay && (
-                    <div className={`text-xs mb-2 px-1 py-0.5 rounded ${
-                      specialDay.type === 'financial' ? 'bg-green-100 text-green-800 border border-green-200' : 
-                      specialDay.type === 'holiday' ? 'bg-red-100 text-red-800 border border-red-200' : 
-                      'bg-blue-100 text-blue-800 border border-blue-200'
-                    }`}>
+                    <div className={`text-xs mb-2 px-1 py-0.5 rounded ${specialDay.type === 'financial' ? 'bg-green-100 text-green-800 border border-green-200' :
+                      specialDay.type === 'holiday' ? 'bg-red-100 text-red-800 border border-red-200' :
+                        'bg-blue-100 text-blue-800 border border-blue-200'
+                      }`}>
                       {specialDay.name}
                     </div>
                   )}
@@ -597,7 +718,7 @@ export default function SocialMediaCalendar() {
                       const Icon = postType.icon;
                       const progress = postProgress[post.id];
                       const hasProgress = progress?.status === 'ready';
-                      
+
                       return (
                         <div
                           key={post.id}
