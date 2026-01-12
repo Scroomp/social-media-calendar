@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, PawPrint, Podcast, FileText, CreditCard, Smartphone, DollarSign, TrendingUp, Video, Sparkles, PartyPopper, Gift, Plus, X, Ticket, AlertCircle, Heart, Briefcase, Check, Circle, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PawPrint, Podcast, FileText, CreditCard, Smartphone, DollarSign, Video, Sparkles, Gift, Plus, X, Ticket, AlertCircle, Heart, Briefcase, CheckCircle2, Users, Edit2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -7,13 +7,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Checkbox } from './ui/checkbox';
 import PostProgressTracker from './PostProgressTracker';
+import ContentIdeasBank from './ContentIdeasBank';
+import { PLATFORM_CONFIG } from './SocialPlatformIcons';
+import { DraggablePostItem } from './DraggablePostItem';
+import { DroppableCalendarDay } from './DroppableCalendarDay';
 
 // localStorage keys
 const STORAGE_KEYS = {
   POSTS: 'social-calendar-posts',
   PROGRESS: 'social-calendar-progress',
-  CURRENT_DATE: 'social-calendar-current-date'
+  CURRENT_DATE: 'social-calendar-current-date',
+  IDEAS: 'social-calendar-ideas'
 };
 
 // Helper functions for localStorage
@@ -49,7 +55,24 @@ const serializePosts = (posts: Post[]) => {
 const deserializePosts = (posts: any[]): Post[] => {
   return posts.map(post => ({
     ...post,
-    scheduledDate: new Date(post.scheduledDate)
+    scheduledDate: new Date(post.scheduledDate),
+    platforms: post.platforms || ['Facebook', 'Instagram'] // Default for old posts
+  }));
+};
+
+// Serialize ideas for storage
+const serializeIdeas = (ideas: ContentIdea[]) => {
+  return ideas.map(idea => ({
+    ...idea,
+    createdDate: idea.createdDate instanceof Date ? idea.createdDate.toISOString() : idea.createdDate
+  }));
+};
+
+// Deserialize ideas from storage
+const deserializeIdeas = (ideas: any[]): ContentIdea[] => {
+  return ideas.map(idea => ({
+    ...idea,
+    createdDate: new Date(idea.createdDate)
   }));
 };
 
@@ -167,6 +190,14 @@ const POST_TYPES = {
     bgLight: 'bg-slate-50',
     borderColor: 'border-slate-200'
   },
+  hiring: {
+    label: 'Hiring Post',
+    color: 'bg-cyan-600',
+    icon: Users,
+    textColor: 'text-cyan-700',
+    bgLight: 'bg-cyan-50',
+    borderColor: 'border-cyan-200'
+  },
 };
 
 interface Post {
@@ -175,6 +206,15 @@ interface Post {
   title: string;
   description: string;
   scheduledDate: Date;
+  platforms: string[];
+}
+
+interface ContentIdea {
+  id: string;
+  category: 'video' | 'photo' | 'graphic' | 'copy' | 'other';
+  title: string;
+  description: string;
+  createdDate: Date;
 }
 
 interface SpecialDay {
@@ -185,79 +225,80 @@ interface SpecialDay {
   type: 'financial' | 'holiday' | 'fun';
 }
 
-// Special days and holidays for all months
+// Special days and holidays for all months (2026 dates)
 const ALL_SPECIAL_DAYS: SpecialDay[] = [
-  // January
+  // January 2026
   { month: 0, day: 1, name: 'New Year\'s Day', emoji: '🎉', type: 'holiday' },
   { month: 0, day: 13, name: 'Financial Wellness Month', emoji: '💰', type: 'financial' },
-  { month: 0, day: 16, name: 'Get to Know Your Customers Day', emoji: '🤝', type: 'financial' },
-  { month: 0, day: 20, name: 'Martin Luther King Jr. Day', emoji: '🕊️', type: 'holiday' },
+  { month: 0, day: 15, name: 'Get to Know Your Customers Day', emoji: '🤝', type: 'financial' },
+  { month: 0, day: 19, name: 'Martin Luther King Jr. Day', emoji: '🕊️', type: 'holiday' },
   { month: 0, day: 24, name: 'National Compliment Day', emoji: '💬', type: 'fun' },
   { month: 0, day: 29, name: 'National Puzzle Day', emoji: '🧩', type: 'fun' },
 
-  // February
-  { month: 1, day: 2, name: 'Super Bowl Sunday', emoji: '🏈', type: 'fun' },
+  // February 2026
+  { month: 1, day: 8, name: 'Super Bowl Sunday', emoji: '🏈', type: 'fun' },
   { month: 1, day: 14, name: 'Valentine\'s Day', emoji: '❤️', type: 'holiday' },
-  { month: 1, day: 17, name: 'Presidents\' Day', emoji: '🇺🇸', type: 'holiday' },
+  { month: 1, day: 16, name: 'Presidents\' Day', emoji: '🇺🇸', type: 'holiday' },
   { month: 1, day: 22, name: 'National Walk Your Dog Day', emoji: '🐕', type: 'fun' },
 
-  // March
+  // March 2026
   { month: 2, day: 1, name: 'National Credit Education Month', emoji: '📚', type: 'financial' },
   { month: 2, day: 8, name: 'International Women\'s Day', emoji: '👩', type: 'holiday' },
   { month: 2, day: 17, name: 'St. Patrick\'s Day', emoji: '🍀', type: 'holiday' },
   { month: 2, day: 20, name: 'First Day of Spring', emoji: '🌸', type: 'fun' },
   { month: 2, day: 31, name: 'World Backup Day', emoji: '💾', type: 'fun' },
 
-  // April
+  // April 2026
   { month: 3, day: 1, name: 'Financial Literacy Month', emoji: '📊', type: 'financial' },
+  { month: 3, day: 5, name: 'Easter Sunday', emoji: '🐰', type: 'holiday' },
   { month: 3, day: 7, name: 'National Beer Day', emoji: '🍺', type: 'fun' },
   { month: 3, day: 15, name: 'Tax Day', emoji: '💸', type: 'financial' },
   { month: 3, day: 22, name: 'Earth Day', emoji: '🌍', type: 'holiday' },
   { month: 3, day: 30, name: 'National Honesty Day', emoji: '🤝', type: 'fun' },
 
-  // May
+  // May 2026
   { month: 4, day: 1, name: 'National Small Business Week', emoji: '🏢', type: 'financial' },
   { month: 4, day: 4, name: 'Star Wars Day', emoji: '⭐', type: 'fun' },
-  { month: 4, day: 11, name: 'Mother\'s Day', emoji: '👩', type: 'holiday' },
-  { month: 4, day: 26, name: 'Memorial Day', emoji: '🇺🇸', type: 'holiday' },
+  { month: 4, day: 10, name: 'Mother\'s Day', emoji: '👩', type: 'holiday' },
+  { month: 4, day: 25, name: 'Memorial Day', emoji: '🇺🇸', type: 'holiday' },
 
-  // June
+  // June 2026
   { month: 5, day: 1, name: 'National Homeownership Month', emoji: '🏡', type: 'financial' },
-  { month: 5, day: 15, name: 'Father\'s Day', emoji: '👨', type: 'holiday' },
   { month: 5, day: 19, name: 'Juneteenth', emoji: '✊', type: 'holiday' },
   { month: 5, day: 21, name: 'First Day of Summer', emoji: '☀️', type: 'fun' },
+  { month: 5, day: 21, name: 'Father\'s Day', emoji: '👨', type: 'holiday' },
 
-  // July
+  // July 2026
   { month: 6, day: 4, name: 'Independence Day', emoji: '🎆', type: 'holiday' },
   { month: 6, day: 17, name: 'World Emoji Day', emoji: '😊', type: 'fun' },
   { month: 6, day: 30, name: 'International Friendship Day', emoji: '🤝', type: 'fun' },
 
-  // August
+  // August 2026
   { month: 7, day: 1, name: 'National Financial Awareness Day', emoji: '💵', type: 'financial' },
   { month: 7, day: 8, name: 'National Dollar Day', emoji: '💲', type: 'financial' },
   { month: 7, day: 19, name: 'National Aviation Day', emoji: '✈️', type: 'fun' },
   { month: 7, day: 26, name: 'National Dog Day', emoji: '🐶', type: 'fun' },
 
-  // September
-  { month: 8, day: 2, name: 'Labor Day', emoji: '⚒️', type: 'holiday' },
+  // September 2026
+  { month: 8, day: 7, name: 'Labor Day', emoji: '⚒️', type: 'holiday' },
   { month: 8, day: 22, name: 'First Day of Fall', emoji: '🍂', type: 'fun' },
   { month: 8, day: 30, name: 'National Savings Day', emoji: '🐷', type: 'financial' },
 
-  // October
+  // October 2026
   { month: 9, day: 1, name: 'National Financial Planning Month', emoji: '📈', type: 'financial' },
-  { month: 9, day: 14, name: 'Columbus Day', emoji: '🗺️', type: 'holiday' },
-  { month: 9, day: 17, name: 'International Credit Union Day', emoji: '🏦', type: 'financial' },
+  { month: 9, day: 12, name: 'Columbus Day', emoji: '🗺️', type: 'holiday' },
+  { month: 9, day: 15, name: 'International Credit Union Day', emoji: '🏦', type: 'financial' },
   { month: 9, day: 31, name: 'Halloween', emoji: '🎃', type: 'holiday' },
 
-  // November
+  // November 2026
   { month: 10, day: 1, name: 'National Debt Awareness Month', emoji: '💳', type: 'financial' },
   { month: 10, day: 11, name: 'Veterans Day', emoji: '🎖️', type: 'holiday' },
-  { month: 10, day: 28, name: 'Thanksgiving', emoji: '🦃', type: 'holiday' },
-  { month: 10, day: 29, name: 'Black Friday', emoji: '🛍️', type: 'fun' },
+  { month: 10, day: 26, name: 'Thanksgiving', emoji: '🦃', type: 'holiday' },
+  { month: 10, day: 27, name: 'Black Friday', emoji: '🛍️', type: 'fun' },
 
-  // December
+  // December 2026
   { month: 11, day: 1, name: 'National Write a Check Day', emoji: '✍️', type: 'financial' },
-  { month: 11, day: 2, name: 'Giving Tuesday', emoji: '🎁', type: 'fun' },
+  { month: 11, day: 1, name: 'Giving Tuesday', emoji: '🎁', type: 'fun' },
   { month: 11, day: 25, name: 'Christmas Day', emoji: '🎄', type: 'holiday' },
   { month: 11, day: 31, name: 'New Year\'s Eve', emoji: '🥳', type: 'holiday' },
 ];
@@ -267,14 +308,15 @@ const generatePosts = (month: number, year: number): Post[] => {
   const posts: Post[] = [];
 
   // Pet of the Week - Every Monday
-  const petDates = [6, 13, 20, 27]; // Mondays in January 2025
+  const petDates = [5, 12, 19, 26]; // Mondays in January 2026
   petDates.forEach((day, index) => {
     posts.push({
       id: `pet-${day}`,
       type: 'pet',
       title: `Meet This Week's Pet: ${['Max', 'Bella', 'Charlie', 'Luna'][index]}!`,
       description: 'Share your furry friend for a chance to be featured!',
-      scheduledDate: new Date(year, month, day)
+      scheduledDate: new Date(year, month, day),
+      platforms: ['Facebook', 'Instagram']
     });
   });
 
@@ -284,23 +326,26 @@ const generatePosts = (month: number, year: number): Post[] => {
     type: 'digital',
     title: 'Mobile Banking Made Easy',
     description: 'Access your accounts anytime, anywhere with our award-winning mobile app',
-    scheduledDate: new Date(year, month, 8)
+    scheduledDate: new Date(year, month, 8),
+    platforms: ['Facebook', 'Instagram', 'LinkedIn']
   });
 
   // Financial Services - 2 per month
   posts.push({
     id: 'financial-1',
     type: 'financial',
-    title: 'Smart Savings Tips for 2025',
+    title: 'Smart Savings Tips for 2026',
     description: 'Start the new year right with these proven strategies',
-    scheduledDate: new Date(year, month, 10)
+    scheduledDate: new Date(year, month, 10),
+    platforms: ['Facebook', 'Instagram', 'LinkedIn']
   });
   posts.push({
     id: 'financial-2',
     type: 'financial',
     title: 'Understanding Your Credit Score',
     description: 'Learn how to improve and maintain healthy credit',
-    scheduledDate: new Date(year, month, 24)
+    scheduledDate: new Date(year, month, 24),
+    platforms: ['Facebook', 'Instagram']
   });
 
   // Podcast Episode - 1 per month
@@ -309,7 +354,8 @@ const generatePosts = (month: number, year: number): Post[] => {
     type: 'podcast',
     title: 'New Episode: Building Wealth in Your 30s',
     description: 'Expert advice on investments, retirement planning, and more',
-    scheduledDate: new Date(year, month, 15)
+    scheduledDate: new Date(year, month, 15),
+    platforms: ['Facebook', 'Instagram', 'LinkedIn', 'TikTok']
   });
 
   // Podcast Promo - 2 per month
@@ -318,14 +364,16 @@ const generatePosts = (month: number, year: number): Post[] => {
     type: 'podcastPromo',
     title: '🎧 Don\'t Miss Our Latest Episode!',
     description: 'Subscribe now on all major podcast platforms',
-    scheduledDate: new Date(year, month, 17)
+    scheduledDate: new Date(year, month, 17),
+    platforms: ['Facebook', 'Instagram', 'Threads']
   });
   posts.push({
     id: 'podcast-promo-2',
     type: 'podcastPromo',
     title: 'Behind the Scenes: Podcast Preview',
     description: 'Sneak peek at next week\'s conversation',
-    scheduledDate: new Date(year, month, 29)
+    scheduledDate: new Date(year, month, 29),
+    platforms: ['Instagram', 'TikTok']
   });
 
   // Blog Post - 1 per month
@@ -334,7 +382,8 @@ const generatePosts = (month: number, year: number): Post[] => {
     type: 'blog',
     title: 'Blog: 5 Ways to Save on Your Monthly Budget',
     description: 'Practical tips from our financial experts',
-    scheduledDate: new Date(year, month, 22)
+    scheduledDate: new Date(year, month, 22),
+    platforms: ['Facebook', 'LinkedIn']
   });
 
   // Product Features - 3 per month
@@ -343,21 +392,24 @@ const generatePosts = (month: number, year: number): Post[] => {
     type: 'product',
     title: 'Introducing: Home Equity Line of Credit',
     description: 'Competitive rates and flexible terms. Learn more today!',
-    scheduledDate: new Date(year, month, 7)
+    scheduledDate: new Date(year, month, 7),
+    platforms: ['Facebook', 'Instagram']
   });
   posts.push({
     id: 'product-2',
     type: 'product',
     title: 'Auto Loans with Rates as Low as 3.99%',
     description: 'Get pre-approved in minutes. No impact to your credit score!',
-    scheduledDate: new Date(year, month, 16)
+    scheduledDate: new Date(year, month, 16),
+    platforms: ['Facebook', 'Instagram']
   });
   posts.push({
     id: 'product-3',
     type: 'product',
     title: 'Rewards Credit Card: Earn Points on Every Purchase',
     description: 'No annual fee. Redeem for cash back, travel, or gift cards',
-    scheduledDate: new Date(year, month, 30)
+    scheduledDate: new Date(year, month, 30),
+    platforms: ['Facebook', 'Instagram']
   });
 
   // Video Content - 4 per month
@@ -366,28 +418,32 @@ const generatePosts = (month: number, year: number): Post[] => {
     type: 'video',
     title: '📹 Member Testimonial: Why I Love NorthCountry FCU',
     description: 'Real stories from real members about their experience',
-    scheduledDate: new Date(year, month, 9)
+    scheduledDate: new Date(year, month, 9),
+    platforms: ['Facebook', 'Instagram', 'TikTok']
   });
   posts.push({
     id: 'video-2',
     type: 'video',
     title: '📹 Quick Tip: How to Set Up Mobile Deposits',
     description: '60-second tutorial on mobile check deposits',
-    scheduledDate: new Date(year, month, 14)
+    scheduledDate: new Date(year, month, 14),
+    platforms: ['Instagram', 'TikTok']
   });
   posts.push({
     id: 'video-3',
     type: 'video',
     title: '📹 Behind the Scenes: Meet Our Team',
     description: 'Get to know the people who serve you every day',
-    scheduledDate: new Date(year, month, 21)
+    scheduledDate: new Date(year, month, 21),
+    platforms: ['Facebook', 'Instagram', 'TikTok']
   });
   posts.push({
     id: 'video-4',
     type: 'video',
     title: '📹 Financial Wellness Workshop Highlights',
     description: 'Key takeaways from our recent community event',
-    scheduledDate: new Date(year, month, 28)
+    scheduledDate: new Date(year, month, 28),
+    platforms: ['Facebook', 'Instagram', 'LinkedIn']
   });
 
   // Special Events - 1 per month
@@ -396,7 +452,8 @@ const generatePosts = (month: number, year: number): Post[] => {
     type: 'special',
     title: 'Special Event: Community Cleanup Day',
     description: 'Join us for a day of giving back to our community',
-    scheduledDate: new Date(year, month, 18)
+    scheduledDate: new Date(year, month, 18),
+    platforms: ['Facebook', 'Instagram']
   });
 
   // Gift Card Giveaways - 1 per month
@@ -405,7 +462,8 @@ const generatePosts = (month: number, year: number): Post[] => {
     type: 'gift',
     title: 'Gift Card Giveaway: Win a $50 Gift Card',
     description: 'Enter to win a $50 gift card to your favorite store',
-    scheduledDate: new Date(year, month, 31)
+    scheduledDate: new Date(year, month, 31),
+    platforms: ['Facebook', 'Instagram']
   });
 
   // Ticket Giveaways - 1 per month
@@ -414,7 +472,8 @@ const generatePosts = (month: number, year: number): Post[] => {
     type: 'ticket',
     title: 'Ticket Giveaway: Win a VIP Experience',
     description: 'Enter to win a VIP experience at our next event',
-    scheduledDate: new Date(year, month, 15)
+    scheduledDate: new Date(year, month, 15),
+    platforms: ['Facebook', 'Instagram']
   });
 
   return posts.sort((a, b) => a.scheduledDate.getTime() - b.scheduledDate.getTime());
@@ -422,13 +481,12 @@ const generatePosts = (month: number, year: number): Post[] => {
 
 export default function SocialMediaCalendar() {
   // Initialize state from localStorage or use defaults
-  const [isInitialized, setIsInitialized] = useState(false);
   const [currentDate, setCurrentDate] = useState(() => {
     const savedDate = loadFromStorage<string | null>(STORAGE_KEYS.CURRENT_DATE, null);
     if (savedDate) {
       return new Date(savedDate);
     }
-    return new Date(2025, 0, 1); // January 2025
+    return new Date(2026, 0, 1); // January 2026
   });
 
   const [posts, setPosts] = useState<Post[]>(() => {
@@ -436,15 +494,26 @@ export default function SocialMediaCalendar() {
     if (savedPosts && savedPosts.length > 0) {
       return deserializePosts(savedPosts);
     }
-    // Generate default posts for January 2025 if no saved data
-    return generatePosts(0, 2025);
+    // Generate default posts for January 2026 if no saved data
+    return generatePosts(0, 2026);
+  });
+
+  const [ideas, setIdeas] = useState<ContentIdea[]>(() => {
+    const savedIdeas = loadFromStorage<any[] | null>(STORAGE_KEYS.IDEAS, null);
+    if (savedIdeas && savedIdeas.length > 0) {
+      return deserializeIdeas(savedIdeas);
+    }
+    return [];
   });
 
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [newPostType, setNewPostType] = useState<keyof typeof POST_TYPES | ''>('');
   const [newPostTitle, setNewPostTitle] = useState('');
   const [newPostDescription, setNewPostDescription] = useState('');
+  const [newPostPlatforms, setNewPostPlatforms] = useState<string[]>(['Facebook', 'Instagram']);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
   const [postProgress, setPostProgress] = useState<Record<string, any>>(() => {
@@ -465,6 +534,11 @@ export default function SocialMediaCalendar() {
   useEffect(() => {
     saveToStorage(STORAGE_KEYS.CURRENT_DATE, currentDate.toISOString());
   }, [currentDate]);
+
+  // Save ideas to localStorage whenever they change
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.IDEAS, serializeIdeas(ideas));
+  }, [ideas]);
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -540,13 +614,15 @@ export default function SocialMediaCalendar() {
         type: newPostType,
         title: newPostTitle,
         description: newPostDescription,
-        scheduledDate: new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDay)
+        scheduledDate: new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDay),
+        platforms: newPostPlatforms
       };
       setPosts([...posts, newPost]);
       setIsDialogOpen(false);
       setNewPostType('');
       setNewPostTitle('');
       setNewPostDescription('');
+      setNewPostPlatforms(['Facebook', 'Instagram']);
     }
   };
 
@@ -559,16 +635,54 @@ export default function SocialMediaCalendar() {
     setPosts(posts.filter(p => p.id !== postId));
   };
 
+  const handleMovePost = (post: Post, targetDay: number) => {
+    const updatedPost = {
+      ...post,
+      scheduledDate: new Date(currentDate.getFullYear(), currentDate.getMonth(), targetDay),
+    };
+    setPosts(posts.map(p => (p.id === post.id ? updatedPost : p)));
+  };
+
+  const handleEditPost = (post: Post) => {
+    setEditingPost(post);
+    setNewPostType(post.type);
+    setNewPostTitle(post.title);
+    setNewPostDescription(post.description);
+    setNewPostPlatforms(post.platforms || ['Facebook', 'Instagram']);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdatePost = () => {
+    if (editingPost && newPostType && newPostTitle && newPostDescription) {
+      const updatedPost: Post = {
+        ...editingPost,
+        type: newPostType,
+        title: newPostTitle,
+        description: newPostDescription,
+        platforms: newPostPlatforms,
+      };
+      setPosts(posts.map(p => (p.id === editingPost.id ? updatedPost : p)));
+      setIsEditDialogOpen(false);
+      setEditingPost(null);
+      setNewPostType('');
+      setNewPostTitle('');
+      setNewPostDescription('');
+      setNewPostPlatforms(['Facebook', 'Instagram']);
+    }
+  };
+
   // Function to clear all saved data and reset to defaults
   const clearAllData = () => {
     if (window.confirm('Are you sure you want to clear all saved data? This will reset the calendar to default posts.')) {
       localStorage.removeItem(STORAGE_KEYS.POSTS);
       localStorage.removeItem(STORAGE_KEYS.PROGRESS);
       localStorage.removeItem(STORAGE_KEYS.CURRENT_DATE);
+      localStorage.removeItem(STORAGE_KEYS.IDEAS);
       // Reset to defaults
-      setCurrentDate(new Date(2025, 0, 1));
-      setPosts(generatePosts(0, 2025));
+      setCurrentDate(new Date(2026, 0, 1));
+      setPosts(generatePosts(0, 2026));
       setPostProgress({});
+      setIdeas([]);
     }
   };
 
@@ -576,6 +690,10 @@ export default function SocialMediaCalendar() {
   const firstDayOfMonth = getFirstDayOfMonth(currentDate);
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const emptyDays = Array.from({ length: firstDayOfMonth }, (_, i) => i);
+
+  // Get today's date for highlighting
+  const today = new Date();
+  const isCurrentMonth = today.getMonth() === currentDate.getMonth() && today.getFullYear() === currentDate.getFullYear();
 
   return (
     <div className="w-full h-full bg-gradient-to-br from-green-50 to-emerald-50 p-8">
@@ -639,7 +757,7 @@ export default function SocialMediaCalendar() {
             <h3 className="mb-3">Special Days & Holidays in {monthNames[currentDate.getMonth()]}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {getCurrentMonthSpecialDays().map((day) => (
-                <div key={day.day} className="flex items-center gap-2">
+                <div key={`${day.day}-${day.name}`} className="flex items-center gap-2">
                   <span className="text-lg">{day.emoji}</span>
                   <span className="text-sm text-slate-700">
                     {monthAbbreviations[currentDate.getMonth()]} {day.day}: <span className={
@@ -653,7 +771,6 @@ export default function SocialMediaCalendar() {
             </div>
           </Card>
         </div>
-
 
         {/* Calendar Grid */}
         <Card className="p-6 bg-white">
@@ -677,90 +794,37 @@ export default function SocialMediaCalendar() {
             {days.map(day => {
               const dayPosts = getPostsForDay(day);
               const specialDay = getSpecialDayForDay(day);
-              const isToday = day === 6 && currentDate.getMonth() === 0; // Highlight Jan 6 as example
+              const isToday = isCurrentMonth && day === today.getDate();
 
               return (
-                <div
+                <DroppableCalendarDay
                   key={day}
-                  className={`border rounded-lg p-2 aspect-square min-h-[140px] hover:border-[#485e27] transition-colors ${isToday ? 'border-[#485e27] bg-green-50' :
-                    specialDay ? 'border-amber-300 bg-amber-50/30' :
-                      'border-slate-200 bg-white'
-                    }`}
+                  day={day}
+                  isToday={isToday}
+                  specialDay={specialDay}
+                  onDrop={(post) => handleMovePost(post, day)}
+                  onAddPost={() => openAddPostDialog(day)}
+                  canAddMore={dayPosts.length < 4}
                 >
-                  <div className="flex items-start justify-between mb-1">
-                    <div className={`text-sm ${isToday ? '' : 'text-slate-700'}`}>
-                      {day}
-                    </div>
-                    {specialDay && (
-                      <div
-                        className={`text-lg leading-none ${specialDay.type === 'financial' ? 'bg-green-100 px-1 rounded' :
-                          specialDay.type === 'holiday' ? 'bg-red-100 px-1 rounded' :
-                            'bg-blue-100 px-1 rounded'
-                          }`}
-                        title={specialDay.name}
-                      >
-                        {specialDay.emoji}
-                      </div>
-                    )}
-                  </div>
-                  {specialDay && (
-                    <div className={`text-xs mb-2 px-1 py-0.5 rounded ${specialDay.type === 'financial' ? 'bg-green-100 text-green-800 border border-green-200' :
-                      specialDay.type === 'holiday' ? 'bg-red-100 text-red-800 border border-red-200' :
-                        'bg-blue-100 text-blue-800 border border-blue-200'
-                      }`}>
-                      {specialDay.name}
-                    </div>
-                  )}
-                  <div className="space-y-1 overflow-y-auto max-h-[70px]">
-                    {dayPosts.map(post => {
-                      const postType = POST_TYPES[post.type];
-                      if (!postType) return null; // Skip posts with invalid types
-                      const Icon = postType.icon;
-                      const progress = postProgress[post.id];
-                      const hasProgress = progress?.status === 'ready';
+                  {dayPosts.map(post => {
+                    const postType = POST_TYPES[post.type];
+                    if (!postType) return null;
+                    const progress = postProgress[post.id];
+                    const hasProgress = progress?.status === 'ready';
 
-                      return (
-                        <div
-                          key={post.id}
-                          onClick={() => setSelectedPost(post)}
-                          className={`${postType.bgLight} ${postType.borderColor} border rounded p-1.5 hover:shadow-sm transition-shadow group relative cursor-pointer`}
-                          title={post.description}
-                        >
-                          <div className="flex items-start justify-between gap-1">
-                            <div className="flex items-start gap-1 flex-1 min-w-0">
-                              <Icon className={`h-3 w-3 ${postType.textColor} flex-shrink-0 mt-0.5`} />
-                              <span className="text-xs text-slate-700 line-clamp-2 leading-tight">
-                                {post.title}
-                              </span>
-                              {hasProgress && (
-                                <CheckCircle2 className="h-3 w-3 text-green-600 flex-shrink-0" />
-                              )}
-                            </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deletePost(post.id);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                              title="Delete post"
-                            >
-                              <X className="h-3 w-3 text-red-600 hover:text-red-800" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {dayPosts.length < 4 && (
-                      <button
-                        onClick={() => openAddPostDialog(day)}
-                        className="w-full border-2 border-dashed border-slate-300 rounded p-1.5 hover:border-[#485e27] hover:bg-green-50/50 transition-colors flex items-center justify-center gap-1 text-slate-500 hover:text-[#485e27]"
-                      >
-                        <Plus className="h-3 w-3" />
-                        <span className="text-xs">Add Post</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
+                    return (
+                      <DraggablePostItem
+                        key={post.id}
+                        post={post}
+                        postType={postType}
+                        hasProgress={hasProgress}
+                        onEdit={() => handleEditPost(post)}
+                        onDelete={() => deletePost(post.id)}
+                        onViewProgress={() => setSelectedPost(post)}
+                      />
+                    );
+                  })}
+                </DroppableCalendarDay>
               );
             })}
           </div>
@@ -772,7 +836,11 @@ export default function SocialMediaCalendar() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {Object.entries(POST_TYPES).map(([key, type]) => {
               const Icon = type.icon;
-              const count = posts.filter(p => p.type === key).length;
+              const count = posts.filter(p =>
+                p.type === key &&
+                p.scheduledDate.getMonth() === currentDate.getMonth() &&
+                p.scheduledDate.getFullYear() === currentDate.getFullYear()
+              ).length;
               return (
                 <div key={key} className={`${type.bgLight} border ${type.borderColor} rounded-lg p-4`}>
                   <div className="flex items-center gap-2 mb-2">
@@ -785,6 +853,11 @@ export default function SocialMediaCalendar() {
             })}
           </div>
         </Card>
+
+        {/* Content Ideas Bank */}
+        <div className="mt-6">
+          <ContentIdeasBank ideas={ideas} onIdeasChange={setIdeas} />
+        </div>
 
         {/* Add Post Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -840,6 +913,36 @@ export default function SocialMediaCalendar() {
                   placeholder="Enter post description..."
                 />
               </div>
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label className="text-right pt-2">Platforms</Label>
+                <div className="col-span-3 space-y-3">
+                  {Object.entries(PLATFORM_CONFIG).map(([key, config]) => {
+                    const Icon = config.icon;
+                    return (
+                      <div key={key} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`platform-${key}`}
+                          checked={newPostPlatforms.includes(key)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setNewPostPlatforms([...newPostPlatforms, key]);
+                            } else {
+                              setNewPostPlatforms(newPostPlatforms.filter(p => p !== key));
+                            }
+                          }}
+                        />
+                        <Label
+                          htmlFor={`platform-${key}`}
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
+                          <Icon className="h-5 w-5" style={{ color: config.color }} />
+                          <span>{key}</span>
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
             <div className="flex items-center justify-end gap-4">
               <Button
@@ -849,6 +952,7 @@ export default function SocialMediaCalendar() {
                   setNewPostType('');
                   setNewPostTitle('');
                   setNewPostDescription('');
+                  setNewPostPlatforms(['Facebook', 'Instagram']);
                 }}
               >
                 Cancel
@@ -858,6 +962,115 @@ export default function SocialMediaCalendar() {
                 disabled={!newPostType || !newPostTitle || !newPostDescription}
               >
                 Add Post
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Post Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Edit Post</DialogTitle>
+              <DialogDescription>
+                Edit the selected post
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="type" className="text-right">Type</Label>
+                <Select
+                  value={newPostType}
+                  onValueChange={(value) => setNewPostType(value as keyof typeof POST_TYPES)}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Select a type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(POST_TYPES).map(([key, type]) => {
+                      const Icon = type.icon;
+                      return (
+                        <SelectItem key={key} value={key}>
+                          <div className="flex items-center gap-2">
+                            <Icon className={`h-4 w-4 ${type.textColor}`} />
+                            <span>{type.label}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="title" className="text-right">Title</Label>
+                <Input
+                  id="title"
+                  value={newPostTitle}
+                  onChange={e => setNewPostTitle(e.target.value)}
+                  className="col-span-3"
+                  placeholder="Enter post title..."
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="description" className="text-right">Description</Label>
+                <Input
+                  id="description"
+                  value={newPostDescription}
+                  onChange={e => setNewPostDescription(e.target.value)}
+                  className="col-span-3"
+                  placeholder="Enter post description..."
+                />
+              </div>
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label className="text-right pt-2">Platforms</Label>
+                <div className="col-span-3 space-y-3">
+                  {Object.entries(PLATFORM_CONFIG).map(([key, config]) => {
+                    const Icon = config.icon;
+                    return (
+                      <div key={key} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`edit-platform-${key}`}
+                          checked={newPostPlatforms.includes(key)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setNewPostPlatforms([...newPostPlatforms, key]);
+                            } else {
+                              setNewPostPlatforms(newPostPlatforms.filter(p => p !== key));
+                            }
+                          }}
+                        />
+                        <Label
+                          htmlFor={`edit-platform-${key}`}
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
+                          <Icon className="h-5 w-5" style={{ color: config.color }} />
+                          <span>{key}</span>
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEditDialogOpen(false);
+                  setEditingPost(null);
+                  setNewPostType('');
+                  setNewPostTitle('');
+                  setNewPostDescription('');
+                  setNewPostPlatforms(['Facebook', 'Instagram']);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpdatePost}
+                disabled={!newPostType || !newPostTitle || !newPostDescription}
+              >
+                Update Post
               </Button>
             </div>
           </DialogContent>
